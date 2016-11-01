@@ -1,1 +1,3 @@
 
+Demonstrate a scenario involving and event driven messaging to execute in real-time and via a scheduled batch. 
+Schedule creates a message every 15 secs, batch job processes messages in groups of three

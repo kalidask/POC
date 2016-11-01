@@ -1,0 +1,65 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<blueprint xmlns="http://www.osgi.org/xmlns/blueprint/v1.0.0"
+    xmlns:camel="http://camel.apache.org/schema/blueprint" xmlns:cxf="http://camel.apache.org/schema/blueprint/cxf">
+    <bean class="org.apache.camel.builder.NoErrorHandlerBuilder" id="noErrorHandler"/>
+    <camelContext id="DE20-context" xmlns="http://camel.apache.org/schema/blueprint">
+        <route id="de20RestInputRoute">
+            <from id="_from1" uri="timer:eventDriven?period=90000"/>
+            <log id="_log1" message="Received msg for de20"/>
+            <setBody id="_setBody1">
+                <constant>message</constant>
+            </setBody>
+            <log id="_log4" message="d20 RestinputRoute body is:----------${body}"/>
+            <inOnly id="_inOnly1" uri="activemq:connectToOfflineEndpoint"/>
+        </route>
+        <route id="de20ActiveMqOfflineRoute">
+            <from id="_from2" uri="activemq:connectToOfflineEndpoint"/>
+            <transacted id="_transacted1" ref="required"/>
+            <log id="_log2" message="Receive de20 jms message and send message to offline system"/>
+            <setBody id="_setBody2">
+                <constant>body</constant>
+            </setBody>
+            <to id="_to1" uri="http://localhost:8184/cxf/offlineRequest"/>
+            <log id="_log3" message="Confirmed offline system is up and processing successfully"/>
+        </route>
+    </camelContext>
+    <bean class="org.apache.camel.spring.spi.SpringTransactionPolicy" id="required">
+        <property name="transactionManager" ref="jmsTransactionManager"/>
+        <property name="propagationBehaviorName" value="PROPAGATION_REQUIRED"/>
+    </bean>
+    <!-- define our activemq component -->
+    <bean class="org.apache.activemq.camel.component.ActiveMQComponent" id="activemq">
+        <property name="connectionFactory" ref="poolConnectionFactory"/>
+        <!-- define the jms consumer/producer as transacted -->
+        <property name="transacted" value="true"/>
+        <property name="brokerURL" value="tcp://localhost:61616?jms.useAsyncSend=true"/>
+        <property name="userName" value="admin"/>
+        <property name="password" value="admin"/>
+        <!-- setup the transaction manager to use -->
+        <!-- if not provided then Camel will automatic use a JmsTransactionManager, however if you
+             for instance use a JTA transaction manager then you must configure it -->
+        <property name="transactionManager" ref="jmsTransactionManager"/>
+        <property name="errorHandlerLogStackTrace" value="false"/>
+    </bean>
+    <!-- setup JMS connection factory -->
+    <bean class="org.apache.activemq.pool.PooledConnectionFactory" id="poolConnectionFactory">
+        <property name="maxConnections" value="8"/>
+        <property name="connectionFactory" ref="jmsConnectionFactory"/>
+    </bean>
+    <bean class="org.apache.activemq.ActiveMQConnectionFactory" id="jmsConnectionFactory">
+        <property name="brokerURL" value="vm://localhost"/>
+        <property name="userName" value="admin"/>
+        <property name="password" value="admin"/>
+        <property name="redeliveryPolicy" ref="redeliveryPolicy"/>
+    </bean>
+    <bean class="org.apache.activemq.RedeliveryPolicy" id="redeliveryPolicy">
+        <property name="maximumRedeliveries" value="-1"/>
+        <property name="redeliveryDelay" value="60000"/>
+        <property name="initialRedeliveryDelay" value="30000"/>
+    </bean>
+    <!-- setup spring jms TX manager -->
+    <bean
+        class="org.springframework.jms.connection.JmsTransactionManager" id="jmsTransactionManager">
+        <property name="connectionFactory" ref="poolConnectionFactory"/>
+    </bean>
+</blueprint>

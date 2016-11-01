@@ -1,0 +1,37 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<blueprint xmlns="http://www.osgi.org/xmlns/blueprint/v1.0.0"
+    xmlns:camel="http://camel.apache.org/schema/blueprint" xmlns:cxf="http://camel.apache.org/schema/blueprint/cxf">
+    <property-placeholder
+        id="property-placeholder-978980a5-23e6-486c-8a2f-8c0a5efe7148"
+        persistent-id="org.fusesource.camel.ws" xmlns="http://aries.apache.org/blueprint/xmlns/blueprint-cm/v1.0.0">
+        <default-properties>
+            <property name="server.de.19" value="http://0.0.0.0:8184"/>
+        </default-properties>
+    </property-placeholder>
+    <cxf:rsServer address="${server.de.19}/cxf/offlineRequest"
+        id="restServer" serviceClass="org.poc.rs.OffLineEndpoint"/>
+    <camelContext id="DE19-context" xmlns="http://camel.apache.org/schema/blueprint">
+        <route id="eventDrivenRoute">
+            <from id="_from1" uri="timer:eventDriven?period=15000"/>
+            <log id="_log1" message="de19 event"/>
+            <setBody id="_setBody1">
+                <simple>${id}</simple>
+            </setBody>
+            <aggregate completionSize="3" id="_aggregate1" strategyRef="aggregatorStrategy">
+                <correlationExpression>
+                    <simple>true</simple>
+                </correlationExpression>
+                <log id="_log2" message="de19 batch event: ${body}"/>
+            </aggregate>
+        </route>
+        <route id="de20OfflineOnlineRoute">
+            <from id="_from2" uri="cxfrs:bean:restServer"/>
+            <log id="_log3" message="Offline system is now online and receiving de20 message."/>
+            <setBody id="_setBody2">
+                <constant>Message de20 processed sucessfully</constant>
+            </setBody>
+            <log message="body of d19:----------${body}" />
+        </route>
+    </camelContext>
+    <bean class="org.poc.aggregator.BodyInAggregatingStrategy" id="aggregatorStrategy"/>
+</blueprint>
